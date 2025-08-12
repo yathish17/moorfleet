@@ -5,7 +5,6 @@ import type { MooringUnit, KPIData, Alarm } from "@/lib/types"
 import { fetchMooringUnits, fetchKPIData, fetchAlarms } from "@/lib/api"
 import { AnimatedBackground } from "@/components/ui/animated-background"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
-import { HeroSection } from "@/components/dashboard/hero-section"
 import { MooringUnitsGrid } from "@/components/dashboard/mooring-units-grid"
 import { KPIOverview } from "@/components/dashboard/kpi-overview"
 import { FleetAnalytics } from "@/components/dashboard/fleet-analytics"
@@ -17,13 +16,14 @@ export function HomePage() {
   const [kpiData, setKpiData] = useState<KPIData[]>([])
   const [alarms, setAlarms] = useState<Alarm[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedRange, setSelectedRange] = useState("30d") // added
   const { toast } = useToast()
 
   const loadData = async () => {
     try {
       const [unitsData, kpiResponse, alarmsData] = await Promise.all([
         fetchMooringUnits(),
-        fetchKPIData(),
+        fetchKPIData(undefined, selectedRange), // pass selected range
         fetchAlarms(),
       ])
 
@@ -46,7 +46,7 @@ export function HomePage() {
     loadData()
     const interval = setInterval(loadData, 30000)
     return () => clearInterval(interval)
-  }, [])
+  }, [selectedRange]) // reload when range changes
 
   if (loading) {
     return (
@@ -60,17 +60,29 @@ export function HomePage() {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
       <AnimatedBackground />
       <DashboardHeader alarms={alarms} />
-      <HeroSection units={units} kpiData={kpiData} />
 
       <main className="container mx-auto px-4 py-8 space-y-8 pt-20">
-        {" "}
-        {/* Added pt-20 here */}
-        {/* Mooring Units Status - First */}
+        <div className="text-center space-y-4 pt-16">
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+            MoorFleet Insights
+          </h1>
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            Real-time monitoring and analytics for your MM Ports and Maritimes units
+          </p>
+        </div>
+
         <MooringUnitsGrid units={units} />
-        {/* Key Performance Indicators - Second */}
-        <KPIOverview kpiData={kpiData} />
-        {/* MoorMaster Analysis - Third */}
-        <FleetAnalytics units={units} kpiData={kpiData} />
+        <KPIOverview 
+          kpiData={kpiData} 
+          selectedRange={selectedRange}
+          onRangeChange={setSelectedRange}
+        />
+        <FleetAnalytics 
+          units={units} 
+          kpiData={kpiData} 
+          selectedRange={selectedRange}
+          onRangeChange={setSelectedRange}
+        />
       </main>
     </div>
   )

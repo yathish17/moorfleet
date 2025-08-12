@@ -91,6 +91,11 @@ export function RecentAlarms({ alarms }: RecentAlarmsProps) {
     }
   }
 
+  const formatUnitDisplay = (unitId: string) => {
+    if (unitId === "all") return "All Units"
+    return `Unit ${unitId}`
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -108,7 +113,7 @@ export function RecentAlarms({ alarms }: RecentAlarmsProps) {
                   <div>
                     <p className="font-medium">{alarm.message}</p>
                     <p className="text-sm text-muted-foreground">
-                      Unit {alarm.unitId} • {formatDistanceToNow(alarm.timestamp, { addSuffix: true })}
+                      {formatUnitDisplay(alarm.unitId)} • {formatDistanceToNow(alarm.timestamp, { addSuffix: true })}
                     </p>
                   </div>
                 </div>

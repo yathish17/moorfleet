@@ -79,7 +79,7 @@ export function UnitChartsGrid({ stateHistory, kpiHistory, unit }: UnitChartsGri
         tension: 0.4,
       },
       {
-        label: "Uptime %",
+        label: "Availability %",
         data: filteredKpiHistory.map((entry) => entry.uptime),
         borderColor: "#10b981",
         backgroundColor: "rgba(16, 185, 129, 0.1)",

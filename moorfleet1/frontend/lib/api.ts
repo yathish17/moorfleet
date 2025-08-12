@@ -1,58 +1,37 @@
 import { type MooringUnit, type KPIData, type Alarm, type StateHistory, type KPIHistory, MOORING_STATES } from "./types"
 
-// --- Mock generators (keep for fallback/testing) ---
-const generateMockUnit = (id: string): MooringUnit => {
-  const states = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-  const currentState = states[Math.floor(Math.random() * states.length)]
-
-  return {
-    id,
-    name: `Unit ${id}`,
-    location: "Global Terminal 1",
-    currentState,
-    stateDescription: MOORING_STATES[currentState as keyof typeof MOORING_STATES],
-    lastUpdated: new Date(),
-    isOnline: Math.random() > 0.1,
-    serialNumber: `SN-${Math.floor(10000 + Math.random() * 90000)}`,
-    assetType: "MM" + (Math.random() > 0.5 ? "100" : "200"),
-    installationYear: 2018 + Math.floor(Math.random() * 5),
-    slaActive: Math.random() > 0.3,
-    commissionedYear: 2019 + Math.floor(Math.random() * 5),
-    dataConsent: true,
-    warrantyStatus: Math.random() > 0.5 ? "Active" : "Expired",
-    siteName: "Global Terminal 1",
-    endUser: "Maritime Solutions Inc.",
-    country: "Global Region",
-  }
+// Unit ID mapping: DB tagid → Display ID
+const mapTagIdToDisplayId = (tagid: number): string => {
+  if (tagid === 1) return "1"
+  if (tagid === 3) return "2"
+  return tagid.toString()
 }
 
-const generateMockKPI = (unitId: string): KPIData => ({
-  unitId,
-  mtbf: Math.floor(Math.random() * 200) + 50,
-  utilization: Math.floor(Math.random() * 40) + 60,
-  alarmFrequency: Math.floor(Math.random() * 10) + 1,
-  uptime: Math.floor(Math.random() * 20) + 80,
-  efficiency: Math.floor(Math.random() * 30) + 70,
-  lastMaintenance: new Date(),
-})
+const mapDisplayIdToTagId = (displayId: string): number => {
+  if (displayId === "1") return 1
+  if (displayId === "2") return 3
+  return parseInt(displayId)
+}
 
 // --- REAL API calls ---
 export const fetchMooringUnit = async (id: string): Promise<MooringUnit | null> => {
   try {
-    const res = await fetch(`http://127.0.0.1:5000/api/units/${id}`);
+    // Convert display ID to DB tagid for API call
+    const tagid = mapDisplayIdToTagId(id)
+    const res = await fetch(`http://192.168.39.165:5000/api/units/${tagid}`);
     if (!res.ok) throw new Error("Failed to fetch unit");
 
     const unit = await res.json();
 
     return {
-      id: unit.unit_id?.toString() ?? id,
-      name: unit.unit ?? `Unit ${id}`,
+      id: mapTagIdToDisplayId(unit.tagid), // Map to display ID
+      name: `Unit ${mapTagIdToDisplayId(unit.tagid)}`, // Use display ID for name
       location: unit.location ?? "Global Terminal 1",
       currentState: unit.state_code,
       stateDescription: unit.state,
       lastUpdated: unit.last_updated ? new Date(unit.last_updated) : new Date(),
       isOnline: [1,2,3,4,5,6,7,8,9,10,11].includes(unit.state_code),
-      serialNumber: unit.serial_number ?? `SN-${10000 + parseInt(id)}`,
+      serialNumber: unit.serial_number ?? `SN-${10000 + tagid}`,
       assetType: unit.asset_type ?? "MM100",
       installationYear: unit.installation_year ?? 2020,
       slaActive: unit.sla_active ?? true,
@@ -71,20 +50,20 @@ export const fetchMooringUnit = async (id: string): Promise<MooringUnit | null> 
 
 export const fetchMooringUnits = async (): Promise<MooringUnit[]> => {
   try {
-    const res = await fetch(`http://127.0.0.1:5000/api/units`);
+    const res = await fetch(`http://192.168.39.165:5000/api/units`);
     if (!res.ok) throw new Error("Failed to fetch units");
 
     const data = await res.json();
 
     return data.map((unit: any) => ({
-      id: unit.unit_id?.toString() ?? "",
-      name: unit.unit ?? `Unit ${unit.unit_id}`,
+      id: mapTagIdToDisplayId(unit.tagid), // Map to display ID
+      name: `Unit ${mapTagIdToDisplayId(unit.tagid)}`, // Use display ID for name
       location: unit.location ?? "Global Terminal 1",
       currentState: unit.state_code,
       stateDescription: unit.state,
       lastUpdated: unit.last_updated ? new Date(unit.last_updated) : new Date(),
-      isOnline: [1,2,3,4,5,6,7,8,9,10,11].includes(unit.state_code),
-      serialNumber: unit.serial_number ?? `SN-${10000 + Math.floor(Math.random() * 90000)}`,
+      isOnline: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(unit.state_code),
+      serialNumber: unit.serial_number ?? `SN-${10000 + unit.tagid}`,
       assetType: unit.asset_type ?? "MM100",
       installationYear: unit.installation_year ?? 2020,
       slaActive: unit.sla_active ?? true,
@@ -101,31 +80,83 @@ export const fetchMooringUnits = async (): Promise<MooringUnit[]> => {
   }
 };
 
+export const fetchKPIData = async (
+  unitId?: string,
+  range: string = "30d"
+): Promise<KPIData[]> => {
+  try {
+    if (unitId) {
+      const tagid = mapDisplayIdToTagId(unitId);
+      const res = await fetch(
+        `http://192.168.39.165:5000/api/kpis/${tagid}?range=${range}`
+      );
+      if (!res.ok) throw new Error("Failed to fetch KPI data");
 
-export const fetchKPIData = async (unitId?: string): Promise<KPIData[]> => {
-  if (unitId) return [generateMockKPI(unitId)]
-  return Array.from({ length: 6 }, (_, i) => generateMockKPI((i + 1).toString()))
-}
+      const kpiData = await res.json();
+      return [
+        {
+          unitId,
+          mtbf: kpiData.mtbf ?? 0,
+          utilization: kpiData.utilization ?? 0,
+          availability: kpiData.availability ?? 0,
+          range,
+        },
+      ];
+    } else {
+      const res = await fetch(
+        `http://192.168.39.165:5000/api/kpis?range=${range}`
+      );
+      if (!res.ok) throw new Error("Failed to fetch KPI data");
+
+      const kpiDataArray = await res.json();
+      return kpiDataArray.map((kpiData: any) => ({
+        unitId: mapTagIdToDisplayId(kpiData.tagid),
+        mtbf: kpiData.mtbf ?? 0,
+        utilization: kpiData.utilization ?? 0,
+        availability: kpiData.availability ?? 0,
+        range,
+      }));
+    }
+  } catch (err) {
+    console.error("Error fetching KPI data:", err);
+    return [];
+  }
+};
+
 
 export const fetchAlarms = async (unitId?: string): Promise<Alarm[]> => {
   try {
-    const url = unitId
-      ? `http://127.0.0.1:5000/api/alarms/recent/${unitId}`
-      : `http://127.0.0.1:5000/api/alarms/recent`
+    let url: string;
+    if (unitId) {
+      // Convert display ID to DB tagid for API call
+      const tagid = mapDisplayIdToTagId(unitId)
+      url = `http://192.168.39.165:5000/api/alarms/recent/${tagid}`;
+    } else {
+      url = `http://192.168.39.165:5000/api/alarms/recent`;
+    }
+
+    console.log(`Fetching alarms from: ${url}`); // Debug log
 
     const res = await fetch(url)
     if (!res.ok) throw new Error("Failed to fetch alarms")
 
     const data = await res.json()
+    console.log(`Received alarms data:`, data); // Debug log
 
     return data.map((alarm: any) => {
       let status: "created" | "cleared" | "acknowledged" = "created"
       if (alarm.eventtype === 1) status = "cleared"
       else if (alarm.eventtype === 2) status = "acknowledged"
 
+      // Map alarm unitId to display ID if present
+      let mappedUnitId = unitId ?? "all";
+      if (alarm.unitId) {
+        mappedUnitId = mapTagIdToDisplayId(Number(alarm.unitId));
+      }
+
       return {
         id: alarm.id.toString(),
-        unitId: unitId ?? "all",
+        unitId: mappedUnitId,
         type: alarm.priority.toLowerCase(),
         message: alarm.message || alarm.name || "Unknown Alarm",
         timestamp: alarm.timestamp
@@ -143,17 +174,65 @@ export const fetchAlarms = async (unitId?: string): Promise<Alarm[]> => {
 }
 
 export const fetchStateHistory = async (unitId: string): Promise<StateHistory[]> => {
-  return []
+  try {
+    // Convert display ID to DB tagid for API call
+    const tagid = mapDisplayIdToTagId(unitId)
+    const res = await fetch(`http://192.168.39.165:5000/api/units/${tagid}/history`);
+    if (!res.ok) throw new Error("Failed to fetch state history");
+    
+    const data = await res.json();
+    return data.map((item: any) => ({
+      timestamp: new Date(item.timestamp),
+      state: item.state_code,
+      duration: item.duration || 0,
+    }));
+  } catch (err) {
+    console.error("Error fetching state history:", err);
+    return [];
+  }
 }
 
 export const fetchKPIHistory = async (unitId: string): Promise<KPIHistory[]> => {
-  return []
+  try {
+    // Convert display ID to DB tagid for API call
+    const tagid = mapDisplayIdToTagId(unitId)
+    const res = await fetch(`http://192.168.39.165:5000/api/kpis/${tagid}/history`);
+    if (!res.ok) throw new Error("Failed to fetch KPI history");
+    
+    const data = await res.json();
+    return data.map((item: any) => ({
+      timestamp: new Date(item.timestamp),
+      mtbf: item.mtbf || 0,
+      utilization: item.utilization || 0,
+      alarmFrequency: item.alarm_frequency || 0,
+      uptime: item.uptime || 0,
+    }));
+  } catch (err) {
+    console.error("Error fetching KPI history:", err);
+    return [];
+  }
 }
 
 export const acknowledgeAlarm = async (alarmId: string): Promise<boolean> => {
-  return true
+  try {
+    const res = await fetch(`http://192.168.39.165:5000/api/alarms/${alarmId}/acknowledge`, {
+      method: 'POST',
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("Error acknowledging alarm:", err);
+    return false;
+  }
 }
 
 export const clearAlarm = async (alarmId: string): Promise<boolean> => {
-  return true
+  try {
+    const res = await fetch(`http://192.168.39.165:5000/api/alarms/${alarmId}/clear`, {
+      method: 'POST',
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("Error clearing alarm:", err);
+    return false;
+  }
 }

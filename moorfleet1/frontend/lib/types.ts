@@ -21,12 +21,10 @@ export interface MooringUnit {
 
 export interface KPIData {
   unitId: string
-  mtbf: number // Mean Time Between Failure (hours)
-  utilization: number // Percentage
-  alarmFrequency: number // Alarms per day
-  uptime: number // Percentage
-  efficiency: number // Percentage
-  lastMaintenance: Date
+  mtbf: number
+  availability: number
+  utilization: number
+  range: string
 }
 
 export interface Alarm {

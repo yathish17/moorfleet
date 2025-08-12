@@ -15,7 +15,7 @@ export function HeroSection({ units, kpiData }: HeroSectionProps) {
   const onlineUnits = units.filter((unit) => unit.isOnline).length
   const mooredUnits = units.filter((unit) => unit.currentState === 6).length // Moored state
   const avgUtilization = kpiData.reduce((sum, kpi) => sum + kpi.utilization, 0) / kpiData.length
-  const avgUptime = kpiData.reduce((sum, kpi) => sum + kpi.uptime, 0) / kpiData.length
+  const avgUptime = kpiData.reduce((sum, kpi) => sum + kpi.availability, 0) / kpiData.length
 
   const stats = [
     {

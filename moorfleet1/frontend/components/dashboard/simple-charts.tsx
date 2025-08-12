@@ -41,7 +41,7 @@ export function SimpleCharts({ units, kpiData }: SimpleChartsProps) {
   const kpiChartData = kpiData.map((kpi, index) => ({
     unit: `Unit ${index + 1}`,
     utilization: kpi.utilization,
-    uptime: kpi.uptime,
+    uptime: kpi.availability,
     mtbf: kpi.mtbf,
   }))
 

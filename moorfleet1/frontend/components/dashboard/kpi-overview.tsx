@@ -6,18 +6,19 @@ import { GlowingCard } from "@/components/ui/glowing-card"
 import { AnimatedCounter } from "@/components/ui/animated-counter"
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { TrendingUp, TrendingDown, Clock, AlertTriangle, Activity, Gauge } from "lucide-react"
+import { Clock, Activity, TrendingUp } from "lucide-react"
 
 interface KPIOverviewProps {
   kpiData: KPIData[]
+  selectedRange: string
+  onRangeChange: (range: string) => void
 }
 
-export function KPIOverview({ kpiData }: KPIOverviewProps) {
-  const avgMTBF = kpiData.reduce((sum, kpi) => sum + kpi.mtbf, 0) / kpiData.length
-  const avgUtilization = kpiData.reduce((sum, kpi) => sum + kpi.utilization, 0) / kpiData.length
-  const totalAlarms = kpiData.reduce((sum, kpi) => sum + kpi.alarmFrequency, 0)
-  const avgUptime = kpiData.reduce((sum, kpi) => sum + kpi.uptime, 0) / kpiData.length
-  const avgEfficiency = kpiData.reduce((sum, kpi) => sum + kpi.efficiency, 0) / kpiData.length
+export function KPIOverview({ kpiData, selectedRange, onRangeChange }: KPIOverviewProps) {
+  // Calculate averages
+  const avgMTBF = kpiData.length > 0 ? kpiData.reduce((sum, kpi) => sum + kpi.mtbf, 0) / kpiData.length : 168
+  const avgUtilization = kpiData.length > 0 ? kpiData.reduce((sum, kpi) => sum + kpi.utilization, 0) / kpiData.length : 75
+  const avgAvailability = kpiData.length > 0 ? kpiData.reduce((sum, kpi) => sum + kpi.availability, 0) / kpiData.length : 95
 
   const kpis = [
     {
@@ -25,7 +26,6 @@ export function KPIOverview({ kpiData }: KPIOverviewProps) {
       value: avgMTBF,
       suffix: "h",
       icon: Clock,
-      trend: 5.2,
       description: "Mean time between failures",
       color: "blue",
       progress: Math.min((avgMTBF / 300) * 100, 100),
@@ -35,47 +35,25 @@ export function KPIOverview({ kpiData }: KPIOverviewProps) {
       value: avgUtilization,
       suffix: "%",
       icon: TrendingUp,
-      trend: 2.1,
       description: "Overall asset utilization",
       color: "green",
       progress: avgUtilization,
     },
     {
-      title: "Daily Alarms",
-      value: totalAlarms,
-      suffix: "",
-      icon: AlertTriangle,
-      trend: -8.3,
-      description: "Total alarms across all units",
-      color: "red",
-      progress: Math.max(100 - (totalAlarms / 50) * 100, 0),
-    },
-    {
-      title: "Average Uptime",
-      value: avgUptime,
+      title: "Average Availability",
+      value: avgAvailability,
       suffix: "%",
       icon: Activity,
-      trend: 1.8,
-      description: "MM uptime percentage",
+      description: "MM availability percentage",
       color: "purple",
-      progress: avgUptime,
-    },
-    {
-      title: "MM Efficiency",
-      value: avgEfficiency,
-      suffix: "%",
-      icon: Gauge,
-      trend: 3.4,
-      description: "Overall operational efficiency",
-      color: "yellow",
-      progress: avgEfficiency,
+      progress: avgAvailability,
     },
   ]
 
   return (
     <section className="space-y-6">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-        <h2 className="text-3xl font-bold mb-2">Key Performance Indicators</h2>
+        <h2 className="text-3xl font-bold mb-2">Performance Metrics</h2>
         <p className="text-muted-foreground">Real-time metrics and performance insights</p>
       </motion.div>
 
@@ -103,14 +81,6 @@ export function KPIOverview({ kpiData }: KPIOverviewProps) {
 
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">{kpi.description}</span>
-                  <div className={`flex items-center ${kpi.trend > 0 ? "text-green-600" : "text-red-600"}`}>
-                    {kpi.trend > 0 ? (
-                      <TrendingUp className="h-3 w-3 mr-1" />
-                    ) : (
-                      <TrendingDown className="h-3 w-3 mr-1" />
-                    )}
-                    {Math.abs(kpi.trend)}%
-                  </div>
                 </div>
               </CardContent>
             </GlowingCard>

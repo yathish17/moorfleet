@@ -3,7 +3,7 @@
 import { type StateHistory, MOORING_STATES } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from "recharts"
 import { format } from "date-fns"
 
 interface StateChartProps {
@@ -61,8 +61,11 @@ export function StateChart({ stateHistory }: StateChartProps) {
                   `${props.payload.stateName} (State ${props.payload.state})`,
                 ]}
               />
-              <Bar dataKey="duration" fill={(entry: any) => getStateColor(entry.state)} radius={[2, 2, 0, 0]} />
-            </BarChart>
+<Bar dataKey="duration" radius={[2, 2, 0, 0]}>
+                {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={getStateColor(entry.state)} />
+                  ))}
+                </Bar>            </BarChart>
           </ResponsiveContainer>
         </ChartContainer>
       </CardContent>

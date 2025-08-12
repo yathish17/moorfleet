@@ -25,18 +25,24 @@ export function UnitDetailsPage({ unitId }: UnitDetailsPageProps) {
   const [stateHistory, setStateHistory] = useState<StateHistory[]>([])
   const [kpiHistory, setKpiHistory] = useState<KPIHistory[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedRange, setSelectedRange] = useState<string>("30d") // default
   const router = useRouter()
   const { toast } = useToast()
 
   const loadData = async () => {
     try {
+      console.log(`DEBUG: Loading data for unit: ${unitId} with range: ${selectedRange}`)
+
       const [unitData, kpiResponse, alarmsData, stateHistoryData, kpiHistoryData] = await Promise.all([
         fetchMooringUnit(unitId),
-        fetchKPIData(unitId),
+        fetchKPIData(unitId, selectedRange),  // <-- pass selected range to backend
         fetchAlarms(unitId),
         fetchStateHistory(unitId),
         fetchKPIHistory(unitId),
       ])
+
+      console.log(`DEBUG: Unit data:`, unitData)
+      console.log(`DEBUG: KPI response:`, kpiResponse)
 
       if (!unitData) {
         router.push("/not-found")
@@ -44,7 +50,7 @@ export function UnitDetailsPage({ unitId }: UnitDetailsPageProps) {
       }
 
       setUnit(unitData)
-      setKpiData(kpiResponse[0])
+      setKpiData(kpiResponse && kpiResponse.length > 0 ? kpiResponse[0] : null)
       setAlarms(alarmsData)
       setStateHistory(stateHistoryData)
       setKpiHistory(kpiHistoryData)
@@ -64,7 +70,7 @@ export function UnitDetailsPage({ unitId }: UnitDetailsPageProps) {
     loadData()
     const interval = setInterval(loadData, 15000)
     return () => clearInterval(interval)
-  }, [unitId])
+  }, [unitId, selectedRange]) // reload when range changes
 
   if (loading) {
     return (
@@ -74,7 +80,7 @@ export function UnitDetailsPage({ unitId }: UnitDetailsPageProps) {
     )
   }
 
-  if (!unit || !kpiData) {
+  if (!unit) {
     return null
   }
 
@@ -88,8 +94,9 @@ export function UnitDetailsPage({ unitId }: UnitDetailsPageProps) {
           <UnitMetadata unit={unit} />
         </motion.div>
 
+        {/* Pass KPI data and a way to change time range */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <UnitKPICards kpiData={kpiData} />
+          <UnitKPICards kpiData={kpiData} selectedRange={selectedRange} onRangeChange={setSelectedRange} />
         </motion.div>
 
         <motion.div

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { ArrowLeft, Wifi, WifiOff, MapPin, Clock, AlertTriangle } from "lucide-react"
+import { ArrowLeft, Wifi, WifiOff, MapPin, Clock, AlertTriangle, Check } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { fetchAlarms } from "@/lib/api"
 
@@ -16,22 +16,28 @@ interface UnitHeaderProps {
 }
 
 export function UnitHeader({ unit }: UnitHeaderProps) {
-  const [criticalAlarms, setCriticalAlarms] = useState<Alarm[]>([])
+  const [alarms, setAlarms] = useState<Alarm[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const loadCriticalAlarms = async () => {
+    const loadAlarms = async () => {
       try {
-        const alarms = await fetchAlarms(unit.id)
-        const highCriticalAlarms = alarms
-          .filter((alarm) => (alarm.priority === "high" || alarm.priority === "critical") && alarm.status !== "cleared")
-          .slice(0, 5) // Show only 5 most recent
-        setCriticalAlarms(highCriticalAlarms)
+        setLoading(true)
+        console.log(`DEBUG: Loading alarms for unit: ${unit.id}`)
+        const unitAlarms = await fetchAlarms(unit.id)
+        console.log(`DEBUG: Received ${unitAlarms.length} alarms for unit ${unit.id}:`, unitAlarms)
+        setAlarms(unitAlarms)
       } catch (error) {
-        console.error("Failed to load critical alarms:", error)
+        console.error("Failed to load alarms:", error)
+      } finally {
+        setLoading(false)
       }
     }
 
-    loadCriticalAlarms()
+    loadAlarms()
+    // Refresh alarms every 30 seconds
+    const interval = setInterval(loadAlarms, 30000)
+    return () => clearInterval(interval)
   }, [unit.id])
 
   const getStateBadgeVariant = (state: number) => {
@@ -72,6 +78,43 @@ export function UnitHeader({ unit }: UnitHeaderProps) {
     }
   }
 
+  const getAlarmBadgeVariant = (type: Alarm["type"]) => {
+    switch (type) {
+      case "critical":
+        return "destructive" as const
+      case "warning":
+        return "secondary" as const
+      case "info":
+        return "outline" as const
+    }
+  }
+
+  const getStatusBadge = (status: "created" | "acknowledged" | "cleared") => {
+    switch (status) {
+      case "created":
+        return (
+          <Badge variant="secondary" className="text-orange-600 text-xs">
+            <Clock className="h-3 w-3 mr-1" />
+            Created
+          </Badge>
+        )
+      case "acknowledged":
+        return (
+          <Badge variant="outline" className="text-blue-600 text-xs">
+            <Check className="h-3 w-3 mr-1" />
+            Acknowledged
+          </Badge>
+        )
+      case "cleared":
+        return (
+          <Badge variant="outline" className="text-green-600 text-xs">
+            <Check className="h-3 w-3 mr-1" />
+            Cleared
+          </Badge>
+        )
+    }
+  }
+
   return (
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4 py-4">
@@ -109,41 +152,46 @@ export function UnitHeader({ unit }: UnitHeaderProps) {
           </div>
 
           <div className="flex items-center space-x-2">
-            {/* Critical Alarms Popover */}
+            {/* Alarms Popover */}
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="relative bg-transparent">
                   <AlertTriangle className="h-4 w-4 mr-2" />
                   Alarms
-                  {criticalAlarms.length > 0 && (
+                  {alarms.length > 0 && (
                     <Badge
                       variant="destructive"
                       className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
                     >
-                      {criticalAlarms.length}
+                      {alarms.length}
                     </Badge>
                   )}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-80" align="end">
                 <div className="space-y-3">
-                  <h4 className="font-semibold text-sm">Critical & High Priority Alarms</h4>
-                  {criticalAlarms.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No critical alarms</p>
+                  <h4 className="font-semibold text-sm">Recent Alarms for {unit.name}</h4>
+                  {loading ? (
+                    <p className="text-sm text-muted-foreground">Loading alarms...</p>
+                  ) : alarms.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No recent alarms</p>
                   ) : (
                     <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {criticalAlarms.map((alarm) => (
+                      {alarms.map((alarm) => (
                         <div key={alarm.id} className="flex items-start space-x-2 p-2 border rounded-lg">
                           {getAlarmIcon(alarm.type)}
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium truncate">{alarm.message}</p>
                             <div className="flex items-center justify-between mt-1">
-                              <Badge variant="outline" className={`text-xs ${getPriorityColor(alarm.priority)}`}>
-                                {alarm.priority}
+                              <Badge variant={getAlarmBadgeVariant(alarm.type)} className="text-xs">
+                                {alarm.type}
                               </Badge>
                               <span className="text-xs text-muted-foreground">
                                 {formatDistanceToNow(alarm.timestamp, { addSuffix: true })}
                               </span>
+                            </div>
+                            <div className="mt-1">
+                              {getStatusBadge(alarm.status)}
                             </div>
                           </div>
                         </div>
