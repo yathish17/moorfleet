@@ -1,9 +1,9 @@
 import pymysql
 import pandas as pd
  
-db_name = 'cc_landing'
+db_name = 'ignitiondb'
 user = 'root'
-passw = 'Rootadmin1234'
+passw = 'U8NbpiQxGyemHJrB'
  
 landing_conn = pymysql.connect(
         host       = '127.0.0.1',
@@ -171,6 +171,7 @@ def calculate_UTIL_KPI(historical_data,alarm_data,duration='1D', unit='U1'):
    
     return util_result
  
-util = calculate_UTIL_KPI(historical_data,alarm_data,'7D', 'U1')
-print(util)
+if __name__ == "__main__":
+    util = calculate_UTIL_KPI(historical_data,alarm_data,'7D', 'U1')
+    print(util)
  

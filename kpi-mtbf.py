@@ -210,6 +210,7 @@ def calculate_MTBF_KPI(historical_data,alarm_data,duration='1D', unit='U1'):
     return MTBF_calculation_result,parameters
  
 
-mtbf, params = calculate_MTBF_KPI(historical_data, alarm_data, '7D', 'U1')
-print(mtbf)
-print(params)
+if __name__ == "__main__":
+    mtbf, params = calculate_MTBF_KPI(historical_data, alarm_data, '7D', 'U1')
+    print(mtbf)
+    print(params)
