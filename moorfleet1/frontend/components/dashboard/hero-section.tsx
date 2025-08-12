@@ -15,7 +15,7 @@ export function HeroSection({ units, kpiData }: HeroSectionProps) {
   const onlineUnits = units.filter((unit) => unit.isOnline).length
   const mooredUnits = units.filter((unit) => unit.currentState === 6).length // Moored state
   const avgUtilization = kpiData.reduce((sum, kpi) => sum + kpi.utilization, 0) / kpiData.length
-  const avgUptime = kpiData.reduce((sum, kpi) => sum + kpi.availability, 0) / kpiData.length
+  const avgAvailability = kpiData.reduce((sum, kpi) => sum + kpi.availability, 0) / kpiData.length
 
   const stats = [
     {
@@ -44,8 +44,8 @@ export function HeroSection({ units, kpiData }: HeroSectionProps) {
     },
     {
       icon: Shield,
-      label: "MM Uptime",
-      value: avgUptime,
+      label: "MM Availability",
+      value: avgAvailability,
       suffix: "%",
       color: "text-emerald-500",
       bgColor: "bg-emerald-500/10",

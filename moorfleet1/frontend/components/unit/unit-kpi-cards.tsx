@@ -1,88 +1,74 @@
-"use client"
+import { Card, CardContent } from "@/components/ui/card"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Clock, TrendingUp, Activity } from "lucide-react"
-import type { KPIData } from "@/lib/types"
+type TimeRange = "1day" | "7days" | "1month" | "1year"
 
 interface UnitKPICardsProps {
-  kpiData: KPIData | null
-  selectedRange: string
-  onRangeChange: (range: string) => void
+  kpiData: any
+  selectedRange: TimeRange
+  onRangeChange: (range: TimeRange) => void
 }
 
-export function UnitKPICards({ kpiData }: UnitKPICardsProps) {
-  if (!kpiData) {
-    return (
-      <section className="space-y-6">
-        <div>
-          <h2 className="text-3xl font-bold mb-2">Performance Metrics</h2>
-          <p className="text-muted-foreground">Loading KPI data...</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader className="pb-3">
-                <div className="h-4 bg-muted rounded w-3/4"></div>
-              </CardHeader>
-              <CardContent>
-                <div className="h-8 bg-muted rounded w-1/2 mb-2"></div>
-                <div className="h-3 bg-muted rounded w-full"></div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
-    )
-  }
+const RANGE_LABELS: Record<TimeRange, string> = {
+  "1day": "Last 24 Hours",
+  "7days": "Last 7 Days",
+  "1month": "Last 30 Days",
+  "1year": "Last 12 Months"
+}
 
+export function UnitKPICards({ kpiData, selectedRange, onRangeChange }: UnitKPICardsProps) {
   return (
-    <section className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold mb-2">Performance Metrics</h2>
-        <p className="text-muted-foreground">
-          {kpiData.range ? `Range: ${kpiData.range}` : "Real-time performance indicators for this unit"}
-        </p>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-semibold">Performance Metrics</h2>
+        <Select value={selectedRange} onValueChange={(val: TimeRange) => onRangeChange(val)}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Select Range">
+              {RANGE_LABELS[selectedRange]}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(RANGE_LABELS).map(([key, label]) => (
+              <SelectItem key={key} value={key}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center space-x-2">
-              <Clock className="h-5 w-5 text-blue-500" />
-              <span>MTBF</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-600">{kpiData.mtbf}h</div>
-            <p className="text-sm text-muted-foreground">Mean Time Between Failures</p>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">Availability</p>
+            <p className="text-2xl font-bold">
+              {kpiData?.availability != null ? `${kpiData.availability}%` : "--"}
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center space-x-2">
-              <Activity className="h-5 w-5 text-purple-500" />
-              <span>Availability</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-purple-600">{kpiData.availability}%</div>
-            <p className="text-sm text-muted-foreground">System availability percentage</p>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">MTBF</p>
+            <p className="text-2xl font-bold">
+              {kpiData?.mtbf === Infinity
+                ? "∞"
+                : kpiData?.mtbf != null
+                  ? `${kpiData.mtbf} hrs`
+                  : "--"}
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center space-x-2">
-              <TrendingUp className="h-5 w-5 text-green-500" />
-              <span>Utilization</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-600">{kpiData.utilization}%</div>
-            <p className="text-sm text-muted-foreground">Current utilization rate</p>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">Utilization</p>
+            <p className="text-2xl font-bold">
+              {kpiData?.utilization != null ? `${kpiData.utilization}%` : "--"}
+            </p>
           </CardContent>
         </Card>
       </div>
-    </section>
+    </div>
   )
 }

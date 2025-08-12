@@ -1,214 +1,124 @@
+# routes/kpi.py
 from flask import Blueprint, jsonify, request
-from mysql.connector import connect
+from kpi_calculations.kpi_availability import calculate_AVAILABILITY_KPI as availability_kpi
+from kpi_calculations.kpi_mtbf import calculate_MTBF_KPI as mtbf_kpi
+from kpi_calculations.kpi_utilization import calculate_UTIL_KPI as utilization_kpi
+from routes.units import get_all_unit_ids  # for all-units route
 from datetime import datetime, timedelta
 
-# Define blueprint
-kpi_bp = Blueprint('kpis', __name__)
+kpi_bp = Blueprint("kpis", __name__)
 
-# Unit ID mapping: Display ID → DB tagid
-UNIT_ID_MAPPING = {
-    1: 1,  # Unit 1 → tagid 1
-    2: 3,  # Unit 2 → tagid 3
+# Duration normalization map
+dur_map = {
+    "24h": "1D", 
+    "7d": "7D", 
+    "30d": "30D", 
+    "12M": "1Y"
 }
 
-def get_db_tagid(display_id):
-    return UNIT_ID_MAPPING.get(display_id, display_id)
+# helper to normalize unit IDs
+def normalize_unit_id(unit_id: str) -> str:
+    """Convert '1' → 'U1', '2' → 'U2', otherwise return as-is."""
+    if unit_id.isdigit():
+        return f"U{unit_id}"
+    return unit_id
 
-# DB connection
-def get_ignition_connection():
-    return connect(
-        host="127.0.0.1",
-        user="root",
-        password="U8NbpiQxGyemHJrB",
-        database="ignitiondb"
-    )
-
-# --- Time Range Helper ---
-def parse_range_to_days(range_param):
-    mapping = {
-        "24h": 1,
-        "7d": 7,
-        "30d": 30,
-        "1y": 365
-    }
-    return mapping.get(range_param, 30)
-
-# --- KPI Calculations ---
-def calculate_mtbf(unit_tagid, days=30):
-    conn = get_ignition_connection()
-    cursor = conn.cursor(dictionary=True)
-    try:
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days)
-        query = """
-            SELECT t_stamp, intvalue
-            FROM sqlt_data_1_2025_08
-            WHERE tagid = %s 
-            AND t_stamp BETWEEN %s AND %s
-            AND intvalue IN (7, 8, 9)
-            ORDER BY t_stamp
-        """
-        cursor.execute(query, (unit_tagid, start_date, end_date))
-        fault_events = cursor.fetchall()
-        if len(fault_events) < 2:
-            return 168
-        total_time = 0
-        for i in range(1, len(fault_events)):
-            time_diff = fault_events[i]['t_stamp'] - fault_events[i-1]['t_stamp']
-            total_time += time_diff.total_seconds() / 3600
-        avg_mtbf = total_time / (len(fault_events) - 1)
-        return round(avg_mtbf, 1)
-    except:
-        return 168
-    finally:
-        conn.close()
-
-def calculate_utilization(unit_tagid, days=30):
-    conn = get_ignition_connection()
-    cursor = conn.cursor(dictionary=True)
-    try:
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days)
-        query = """
-            SELECT 
-                COUNT(*) as total_records,
-                SUM(CASE WHEN intvalue IN (6, 11) THEN 1 ELSE 0 END) as operational_records
-            FROM sqlt_data_1_2025_08
-            WHERE tagid = %s 
-            AND t_stamp BETWEEN %s AND %s
-        """
-        cursor.execute(query, (unit_tagid, start_date, end_date))
-        result = cursor.fetchone()
-        if result['total_records'] == 0:
-            return 75
-        utilization = (result['operational_records'] / result['total_records']) * 100
-        return round(utilization, 1)
-    except:
-        return 75
-    finally:
-        conn.close()
-
-def calculate_alarm_frequency(unit_tagid, days=30):
-    conn = get_ignition_connection()
-    cursor = conn.cursor(dictionary=True)
-    try:
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days)
-        query = """
-            SELECT COUNT(*) as alarm_count
-            FROM alarm_events
-            WHERE source LIKE %s
-            AND eventtime BETWEEN %s AND %s
-        """
-        cursor.execute(query, (f"%MoorUnit{unit_tagid}/%", start_date, end_date))
-        result = cursor.fetchone()
-        alarm_frequency = result['alarm_count'] / days
-        return round(alarm_frequency, 1)
-    except:
-        return 2.5
-    finally:
-        conn.close()
-
-def calculate_availability(unit_tagid, days=30):
-    conn = get_ignition_connection()
-    cursor = conn.cursor(dictionary=True)
-    try:
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days)
-        query = """
-            SELECT 
-                COUNT(*) as total_records,
-                SUM(CASE WHEN intvalue IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11) THEN 1 ELSE 0 END) as online_records
-            FROM sqlt_data_1_2025_08
-            WHERE tagid = %s 
-            AND t_stamp BETWEEN %s AND %s
-        """
-        cursor.execute(query, (unit_tagid, start_date, end_date))
-        result = cursor.fetchone()
-        if result['total_records'] == 0:
-            return 95
-        availability = (result['online_records'] / result['total_records']) * 100
-        return round(availability, 1)
-    except:
-        return 95
-    finally:
-        conn.close()
-
-# --- Routes ---
-@kpi_bp.route('/', methods=['GET'])
+@kpi_bp.route("/", methods=["GET"])
 def get_all_kpis():
+    """Return KPI data for all units when ?range=<duration> is provided."""
     try:
-        range_param = request.args.get('range', '30d')
-        days = parse_range_to_days(range_param)
+        duration = request.args.get("range", "30D")
+        dur = dur_map.get(duration, duration)
 
-        kpis = []
-        for tagid in [1, 3]:
-            kpi_data = {
-                'tagid': tagid,
-                'mtbf': calculate_mtbf(tagid, days),
-                'utilization': calculate_utilization(tagid, days),
-                'availability': calculate_availability(tagid, days),
-                'alarm_frequency': calculate_alarm_frequency(tagid, days),
-                'last_maintenance': (datetime.now() - timedelta(days=15)).strftime('%Y-%m-%d %H:%M:%S'),
-                'range': range_param
-            }
-            kpis.append(kpi_data)
-
-        return jsonify(kpis)
-    except Exception as e:
-        print(f"Error getting KPI data: {e}")
-        return jsonify([]), 500
-
-@kpi_bp.route('/<int:display_id>', methods=['GET'])
-def get_unit_kpi(display_id):
-    try:
-        db_tagid = get_db_tagid(display_id)
-        range_param = request.args.get('range', '30d')
-        days = parse_range_to_days(range_param)
-
-        kpi_data = {
-            'tagid': db_tagid,
-            'mtbf': calculate_mtbf(db_tagid, days),
-            'availability': calculate_availability(db_tagid, days),
-            'utilization': calculate_utilization(db_tagid, days),
-            'alarm_frequency': calculate_alarm_frequency(db_tagid, days),
-            'last_maintenance': (datetime.now() - timedelta(days=15)).strftime('%Y-%m-%d %H:%M:%S'),
-            'range': range_param
-        }
-        return jsonify(kpi_data)
-    except Exception as e:
-        print(f"Error getting KPI data for unit {display_id}: {e}")
-        return jsonify({'error': 'Failed to get KPI data'}), 500
-
-@kpi_bp.route('/<int:display_id>/history', methods=['GET'])
-def get_unit_kpi_history(display_id):
-    """Calculate KPI history (daily) for a specific unit"""
-    try:
-        days = parse_range_to_days(request.args.get('range', '30d'))
-        db_tagid = get_db_tagid(display_id)
-
-        # Build daily KPI list
-        history = []
-        for i in range(days):
-            end_date = datetime.now() - timedelta(days=i)
-            start_date = end_date - timedelta(days=1)
-
-            mtbf = calculate_mtbf(db_tagid, 1)  # 1-day MTBF
-            utilization = calculate_utilization(db_tagid, 1)
-            availability = calculate_availability(db_tagid, 1)
-
-            history.append({
-                "date": start_date.strftime("%Y-%m-%d"),
-                "mtbf": mtbf,
-                "utilization": utilization,
-                "availability": availability
+        all_units = []
+        for unit in get_all_unit_ids():
+            norm_unit = normalize_unit_id(str(unit))
+            availability = availability_kpi(dur, norm_unit)
+            mtbf_value, mtbf_params = mtbf_kpi(dur, norm_unit)
+            utilization = utilization_kpi(dur, norm_unit)
+            all_units.append({
+                "unit": norm_unit,
+                "duration": dur,
+                "availability": availability,
+                "mtbf": mtbf_value,
+                "mtbf_details": mtbf_params,
+                "utilization": utilization
             })
 
-        # Reverse so oldest date first
-        history.reverse()
-        return jsonify(history), 200
+        return jsonify(all_units)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@kpi_bp.route("/<unit_id>/<duration>", methods=["GET"])
+def get_kpis(unit_id, duration):
+    """Return KPI data for a single unit (numeric or string)."""
+    try:
+        dur = dur_map.get(duration, duration)
+        norm_unit = normalize_unit_id(unit_id)
+        availability = availability_kpi(dur, norm_unit)
+        mtbf_value, mtbf_params = mtbf_kpi(dur, norm_unit)
+        utilization = utilization_kpi(dur, norm_unit)
+
+        return jsonify({
+            "unit": norm_unit,
+            "duration": dur,
+            "availability": availability,
+            "mtbf": mtbf_value,
+            "mtbf_details": mtbf_params,
+            "utilization": utilization
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@kpi_bp.route("/<unit_id>/history", methods=["GET"])
+def get_kpi_history(unit_id):
+    """
+    Return historical KPI data for charts.
+    Optional query param: range=1D|7D|30D|1Y (default 30D)
+    Output: [{timestamp, uptime, utilization, mtbf}, ...]
+    """
+    try:
+        duration = request.args.get("range", "30D")
+        dur = dur_map.get(duration, duration)
+        norm_unit = normalize_unit_id(unit_id)
+
+        # Define start date based on range
+        now = datetime.utcnow()
+        if dur == "1D":
+            start_time = now - timedelta(days=1)
+            step = timedelta(hours=1)  # hourly points
+        elif dur == "7D":
+            start_time = now - timedelta(days=7)
+            step = timedelta(days=1)   # daily points
+        elif dur == "30D":
+            start_time = now - timedelta(days=30)
+            step = timedelta(days=1)
+        elif dur == "1Y":
+            start_time = now - timedelta(days=365)
+            step = timedelta(days=30)  # monthly-ish
+        else:
+            return jsonify({"error": f"Invalid range: {duration}"}), 400
+
+        # Build time series
+        history = []
+        current_time = start_time
+        while current_time <= now:
+            # For each time slice, run KPI calculations
+            avail = availability_kpi(dur, norm_unit, end_time=current_time)
+            mtbf_val, _ = mtbf_kpi(dur, norm_unit, end_time=current_time)
+            util = utilization_kpi(dur, norm_unit, end_time=current_time)
+
+            history.append({
+                "timestamp": current_time.isoformat(),
+                "uptime": avail,
+                "mtbf": mtbf_val,
+                "utilization": util
+            })
+            current_time += step
+
+        return jsonify(history)
 
     except Exception as e:
-        print(f"Error getting KPI history for unit {display_id}: {e}")
-        return jsonify([]), 500
-
+        return jsonify({"error": str(e)}), 500

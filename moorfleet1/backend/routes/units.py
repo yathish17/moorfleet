@@ -4,6 +4,15 @@ from utils.mooring_states import MOORING_STATES
 
 # Define blueprint
 units_bp = Blueprint('units', __name__)
+# Add this near the top of units.py, after imports and before routes
+
+def get_all_unit_ids():
+    """
+    Returns a list of display IDs for all units in the system.
+    Currently based on UNIT_ID_MAPPING keys.
+    """
+    return [f"U{display_id}" for display_id in UNIT_ID_MAPPING.keys()]
+
 
 # DB connection to ignitiondb
 def get_ignition_connection():
@@ -55,13 +64,13 @@ def get_unit_statuses():
                 "last_updated": row["t_stamp"],
                 "location": "Global Terminal 1",
                 "serial_number": f"SN-{10000 + tagid}",
-                "asset_type": "MM100",
+                "asset_type": "MM2",
                 "installation_year": 2020,
                 "sla_active": True,
                 "commissioned_year": 2021,
                 "site_name": "Global Terminal 1",
                 "end_user": "Maritime Solutions Inc.",
-                "country": "Global Region"
+                "country": "India"
             }
 
     conn.close()
@@ -99,13 +108,13 @@ def get_unit_status(display_id):
         "last_updated": row["t_stamp"],
         "location": "Global Terminal 1",
         "serial_number": f"SN-{10000 + db_tagid}",
-        "asset_type": "MM100",
+        "asset_type": "MM1",
         "installation_year": 2020,
         "sla_active": True,
         "commissioned_year": 2021,
         "site_name": "Global Terminal 1",
         "end_user": "Maritime Solutions Inc.",
-        "country": "Global Region"
+        "country": "India"
     }
 
     conn.close()

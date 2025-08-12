@@ -82,46 +82,33 @@ export const fetchMooringUnits = async (): Promise<MooringUnit[]> => {
 
 export const fetchKPIData = async (
   unitId?: string,
-  range: string = "30d"
+  range: string = "30D"
 ): Promise<KPIData[]> => {
   try {
     if (unitId) {
-      const tagid = mapDisplayIdToTagId(unitId);
-      const res = await fetch(
-        `http://192.168.39.165:5000/api/kpis/${tagid}?range=${range}`
-      );
+      // single unit mode
+      const res = await fetch(`http://192.168.39.165:5000/api/kpis/${unitId}/${range}`);
       if (!res.ok) throw new Error("Failed to fetch KPI data");
-
       const kpiData = await res.json();
-      return [
-        {
-          unitId,
-          mtbf: kpiData.mtbf ?? 0,
-          utilization: kpiData.utilization ?? 0,
-          availability: kpiData.availability ?? 0,
-          range,
-        },
-      ];
-    } else {
-      const res = await fetch(
-        `http://192.168.39.165:5000/api/kpis?range=${range}`
-      );
-      if (!res.ok) throw new Error("Failed to fetch KPI data");
-
-      const kpiDataArray = await res.json();
-      return kpiDataArray.map((kpiData: any) => ({
-        unitId: mapTagIdToDisplayId(kpiData.tagid),
+      return [{
+        unitId,
         mtbf: kpiData.mtbf ?? 0,
         utilization: kpiData.utilization ?? 0,
         availability: kpiData.availability ?? 0,
-        range,
-      }));
+        range
+      }];
+    } else {
+      // all units
+      const res = await fetch(`http://192.168.39.165:5000/api/kpis?range=${range}`);
+      if (!res.ok) throw new Error("Failed to fetch KPI data");
+      return await res.json();
     }
   } catch (err) {
     console.error("Error fetching KPI data:", err);
     return [];
   }
 };
+
 
 
 export const fetchAlarms = async (unitId?: string): Promise<Alarm[]> => {
