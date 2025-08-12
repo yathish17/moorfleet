@@ -43,61 +43,96 @@ units = {
     'Unit2': {'tagpath_id': '2', 'maint_alarm_id': 50}
 }
 
-# Define target dates (past 10 days)
-now = pd.Timestamp.now(tz='UTC').floor('D')
-date_list = [now - pd.Timedelta(days=i) for i in range(10)]
+# Expose a reusable availability function and avoid running heavy loops on import
+DURATION_DAYS = { '1D': 1, '7D': 7, '30D': 30, '1Y': 365 }
 
-# Final storage
-availability_rows = []
+UNIT_TO_MAINT_ALARM = { 'U1': 5, 'U2': 50 }
 
-for date in date_list:
-    start_dt = date
-    end_dt = start_dt + pd.Timedelta(days=1)
-    total_period = end_dt - start_dt
 
-    for unit_name, config in units.items():
-        tag_id = config['tagpath_id']
-        maint_id = config['maint_alarm_id']
+def calculate_AVAILABILITY_KPI(historical_data: pd.DataFrame, alarm_data: pd.DataFrame, duration: str = '1D', unit: str = 'U1') -> float:
+    """Calculate availability percentage for a unit over a duration.
 
-        # State data in this period
-        unit_states = historical_data[
-            (historical_data['tagpath_id'] == tag_id) &
-            (historical_data['t_stamp'] >= start_dt) &
-            (historical_data['t_stamp'] < end_dt)
-        ].sort_values('t_stamp')
+    Availability is computed as (total_period - maintenance_downtime) / total_period * 100.
+    Maintenance downtime is approximated as 5 minutes per maintenance active event.
+    """
+    if duration not in DURATION_DAYS:
+        duration = '30D'
 
-        # Build durations between state changes
-        unit_states['next_time'] = unit_states['t_stamp'].shift(-1)
-        unit_states['duration'] = (unit_states['next_time'] - unit_states['t_stamp'])
-        state_duration = unit_states['duration'].sum()
+    end_time = pd.Timestamp.utcnow()
+    start_time = end_time - pd.Timedelta(days=DURATION_DAYS[duration])
 
-        # Maintenance duration from alarms
-        maint_alarms = alarm_data[
-            (alarm_data['alarm_id'] == maint_id) &
-            (alarm_data['eventtype'] == 0) &  # Active
-            (alarm_data['eventtime'] >= start_dt) & 
-            (alarm_data['eventtime'] < end_dt)
-        ]
-        maint_duration = pd.to_timedelta(maint_alarms.shape[0] * 5 * 60, unit='s')  # assuming 5 min/event
+    maint_id = UNIT_TO_MAINT_ALARM.get(unit)
+    if maint_id is None:
+        return 0.0
 
-        # Total downtime = maintenance + gaps in state data
-        downtime = maint_duration
+    maint_events = alarm_data[
+        (alarm_data['alarm_id'] == maint_id) &
+        (alarm_data['eventtype'] == 0) &
+        (alarm_data['eventtime'] > start_time) &
+        (alarm_data['eventtime'] <= end_time)
+    ]
 
-        availability = ((total_period - downtime) / total_period) * 100
+    maint_duration = pd.to_timedelta(maint_events.shape[0] * 5 * 60, unit='s')
+    total_period = end_time - start_time
 
-        print(f"\n{start_dt.date()} — {unit_name}")
-        print(f"  Maintenance events     : {maint_alarms.shape[0]}")
-        print(f"  Maintenance downtime   : {maint_duration}")
-        print(f"  Total availability (%) : {availability:.2f}")
+    if total_period <= pd.Timedelta(0):
+        return 0.0
 
-        availability_rows.append({
-            'date': start_dt.date(),
-            'unit': unit_name,
-            'maintenance_count': maint_alarms.shape[0],
-            'maintenance_downtime_minutes': maint_duration.total_seconds() / 60,
-            'availability_percent': round(availability, 2)
-        })
+    availability = ((total_period - maint_duration) / total_period) * 100
+    availability_value = max(0.0, float(availability))
+    return round(availability_value, 2)
 
-# Save results
-availability_df = pd.DataFrame(availability_rows)
+
+if __name__ == "__main__":
+    # Original exploratory code preserved under main guard
+    now = pd.Timestamp.now(tz='UTC').floor('D')
+    date_list = [now - pd.Timedelta(days=i) for i in range(10)]
+
+    availability_rows = []
+
+    for date in date_list:
+        start_dt = date
+        end_dt = start_dt + pd.Timedelta(days=1)
+        total_period = end_dt - start_dt
+
+        for unit_name, config in units.items():
+            tag_id = config['tagpath_id']
+            maint_id = config['maint_alarm_id']
+
+            unit_states = historical_data[
+                (historical_data['tagpath_id'] == tag_id) &
+                (historical_data['t_stamp'] >= start_dt) &
+                (historical_data['t_stamp'] < end_dt)
+            ].sort_values('t_stamp')
+
+            unit_states['next_time'] = unit_states['t_stamp'].shift(-1)
+            unit_states['duration'] = (unit_states['next_time'] - unit_states['t_stamp'])
+            state_duration = unit_states['duration'].sum()
+
+            maint_alarms = alarm_data[
+                (alarm_data['alarm_id'] == maint_id) &
+                (alarm_data['eventtype'] == 0) &
+                (alarm_data['eventtime'] >= start_dt) & 
+                (alarm_data['eventtime'] < end_dt)
+            ]
+            maint_duration = pd.to_timedelta(maint_alarms.shape[0] * 5 * 60, unit='s')
+
+            downtime = maint_duration
+
+            availability = ((total_period - downtime) / total_period) * 100
+
+            print(f"\n{start_dt.date()} — {unit_name}")
+            print(f"  Maintenance events     : {maint_alarms.shape[0]}")
+            print(f"  Maintenance downtime   : {maint_duration}")
+            print(f"  Total availability (%) : {availability:.2f}")
+
+            availability_rows.append({
+                'date': start_dt.date(),
+                'unit': unit_name,
+                'maintenance_count': maint_alarms.shape[0],
+                'maintenance_downtime_minutes': maint_duration.total_seconds() / 60,
+                'availability_percent': round(availability, 2)
+            })
+
+    availability_df = pd.DataFrame(availability_rows)
 
