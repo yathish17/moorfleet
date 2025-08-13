@@ -102,89 +102,15 @@ export function FleetAnalytics({ units, kpiData, selectedRange, onRangeChange }:
   return (
     <section className="space-y-8">
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h2 className="text-3xl font-bold mb-2">MM Analysis</h2>
-            <p className="text-muted-foreground">
-              Comprehensive performance insights across your MM fleet
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Calendar className="h-5 w-5 text-muted-foreground" />
-            <Select value={selectedTimeRange} onValueChange={(value: TimeRange) => setSelectedTimeRange(value)}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select time range" />
-              </SelectTrigger>
-              <SelectContent>
-                {timeRangeOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </motion.div>
-
+        
       {/* KPI Comparison */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            Unit Performance Comparison
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <BarChart data={kpiChartData} height={400} />
-        </CardContent>
-      </Card>
+      
 
       {/* Trends */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
-              MM Performance Trends
-            </div>
-            <div className="text-sm text-muted-foreground flex items-center gap-1">
-              <TrendingUp className="h-4 w-4" />
-              {timeRangeOptions.find((opt) => opt.value === selectedTimeRange)?.label}
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <LineChart data={performanceTrends} height={400} />
-        </CardContent>
-      </Card>
+      
 
       {/* MTBF only */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-              MTBF Distribution Across Units
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <BarChart data={mtbfBarData} height={350} horizontal />
-            <div className="mt-4 p-4 bg-muted rounded-lg">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-500">
-                  {Math.round(
-                    kpiData.reduce((sum, kpi) => sum + kpi.mtbf, 0) / (kpiData.length || 1)
-                  )}
-                  h
-                </div>
-                <div className="text-sm text-muted-foreground">Average MM MTBF</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      
     </section>
   )
 }

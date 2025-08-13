@@ -179,11 +179,11 @@ export const fetchStateHistory = async (unitId: string): Promise<StateHistory[]>
   }
 }
 
-export const fetchKPIHistory = async (unitId: string): Promise<KPIHistory[]> => {
+export const fetchKPIHistory = async (unitId: string, range: string): Promise<KPIHistory[]> => {
   try {
     // Convert display ID to DB tagid for API call
     const tagid = mapDisplayIdToTagId(unitId)
-    const res = await fetch(`http://192.168.39.165:5000/api/kpis/${tagid}/history`);
+    const res = await fetch(`http://192.168.39.165:5000/api/kpis/${tagid}/history?range=${range}`);
     if (!res.ok) throw new Error("Failed to fetch KPI history");
     
     const data = await res.json();

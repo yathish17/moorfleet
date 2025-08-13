@@ -4,16 +4,16 @@ from kpi_calculations.kpi_availability import calculate_AVAILABILITY_KPI as avai
 from kpi_calculations.kpi_mtbf import calculate_MTBF_KPI as mtbf_kpi
 from kpi_calculations.kpi_utilization import calculate_UTIL_KPI as utilization_kpi
 from routes.units import get_all_unit_ids  # for all-units route
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 kpi_bp = Blueprint("kpis", __name__)
 
 # Duration normalization map
 dur_map = {
-    "24h": "1D", 
-    "7d": "7D", 
-    "30d": "30D", 
-    "12M": "1Y"
+    "24h": "1D", "1D": "1D",
+    "7d": "7D", "7D": "7D",
+    "30d": "30D", "30D": "30D",
+    "12M": "1Y", "1Y": "1Y"
 }
 
 # helper to normalize unit IDs
@@ -85,7 +85,7 @@ def get_kpi_history(unit_id):
         norm_unit = normalize_unit_id(unit_id)
 
         # Define start date based on range
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if dur == "1D":
             start_time = now - timedelta(days=1)
             step = timedelta(hours=1)  # hourly points

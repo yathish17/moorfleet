@@ -24,12 +24,14 @@ interface UnitDetailsPageProps {
   unitId: string;
 }
 
+// Frontend range → backend API duration
 const RANGE_MAP = {
   "1day": "1D",
   "7days": "7D",
   "1month": "30D",
   "1year": "1Y"
 } as const;
+
 
 export function UnitDetailsPage({ unitId }: UnitDetailsPageProps) {
   const [unit, setUnit] = useState<MooringUnit | null>(null);
@@ -45,14 +47,14 @@ export function UnitDetailsPage({ unitId }: UnitDetailsPageProps) {
 
   const loadData = async () => {
     try {
-      const rangeParam = RANGE_MAP[selectedRange];
-
+      const rangeParam = RANGE_MAP[selectedRange as keyof typeof RANGE_MAP];
+  
       const [unitData, kpiResponse, alarmsData, stateHistoryData, kpiHistoryData] = await Promise.all([
         fetchMooringUnit(unitId),
-        fetchKPIData(unitId, rangeParam),
+        fetchKPIData(unitId, rangeParam),      // <-- now correct
         fetchAlarms(unitId),
         fetchStateHistory(unitId),
-        fetchKPIHistory(unitId, rangeParam) // now passing same range
+        fetchKPIHistory(unitId, rangeParam),   // <-- pass same range here
       ]);
 
       if (!unitData) {
@@ -61,7 +63,7 @@ export function UnitDetailsPage({ unitId }: UnitDetailsPageProps) {
       }
 
       setUnit(unitData);
-      setKpiData(Array.isArray(kpiResponse) ? kpiResponse[0] : kpiResponse);
+      setKpiData(kpiResponse && kpiResponse.length > 0 ? kpiResponse[0] : null);
       setAlarms(alarmsData);
       setStateHistory(stateHistoryData);
       setKpiHistory(kpiHistoryData);
@@ -99,10 +101,12 @@ export function UnitDetailsPage({ unitId }: UnitDetailsPageProps) {
       <UnitHeader unit={unit} />
 
       <main className="container mx-auto px-4 py-8 space-y-8">
+        {/* Metadata */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
           <UnitMetadata unit={unit} />
         </motion.div>
 
+        {/* KPI Cards with range selector */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
           <UnitKPICards
             kpiData={kpiData}
@@ -111,6 +115,7 @@ export function UnitDetailsPage({ unitId }: UnitDetailsPageProps) {
           />
         </motion.div>
 
+        {/* Charts */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2 }}>
           <UnitChartsGrid
             stateHistory={stateHistory}
@@ -120,6 +125,7 @@ export function UnitDetailsPage({ unitId }: UnitDetailsPageProps) {
           />
         </motion.div>
 
+        {/* Alarms */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.4 }}>
           <AlarmTable alarms={alarms} />
         </motion.div>
